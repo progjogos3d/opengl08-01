@@ -1,0 +1,301 @@
+package br.pucpr.mage;
+
+import org.joml.*;
+import org.lwjgl.BufferUtils;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.FloatBuffer;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL32.GL_GEOMETRY_SHADER;
+
+/**
+ * Representa o shader program.
+ */
+public class Shader {
+    private int id;
+
+    private Shader(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Le o conteúdo de um arquivo e carrega em uma String
+     * @param is Um InputStream apontando para o arquivo
+     * @return Um texto com o conteúdo do arquivo
+     */
+    private static String readInputStream(InputStream is) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
+            return sb.toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to load shader", e);
+        }
+    }
+
+
+    /**
+     * Compila o código do shader.
+     *
+     * @param type Tipo do shader a ser compilado. Pode ser GL_VERTEX_SHADER, GL_FRAGMENT_SHADER ou GL_GEOMETRY_SHADER.
+     * @param code Código fonte do shader
+     * @return O id do shader compilado
+     * @throws RuntimeException Caso o código contenha erros.
+     */
+    private static int compileShader(int type, String code) {
+        int shader = glCreateShader(type);
+        glShaderSource(shader, code);
+        glCompileShader(shader);
+
+        if (glGetShaderi(shader, GL_COMPILE_STATUS) == GL_FALSE) {
+            String typeStr = type == GL_VERTEX_SHADER ? "vertex" : type == GL_FRAGMENT_SHADER ? "fragment" : "geometry";
+            throw new RuntimeException("Unable to compile " + typeStr + " shader." + glGetShaderInfoLog(shader));
+        }
+        return shader;
+    }
+
+    /**
+     * Carrega e compila o shader indicado no parâmetro.
+     * @param name Nome do shader a ser carregado
+     * @return O shader compilado.
+     */
+    private static int loadShader(String name) {
+        name = name.trim();
+
+        int dotIndex = name.lastIndexOf(".");
+        String extension = dotIndex == -1 ? "" : name.substring(dotIndex).toLowerCase();
+
+        int type;
+        if (extension.equals(".vert") || extension.equals(".vs"))
+            type = GL_VERTEX_SHADER;
+        else if (extension.endsWith(".frag") || extension.endsWith(".fs"))
+            type = GL_FRAGMENT_SHADER;
+        else if (extension.endsWith(".geom") || extension.endsWith(".gs"))
+            type = GL_GEOMETRY_SHADER;
+        else
+            throw new IllegalArgumentException("Invalid shader name: " + name);
+
+        String code = readInputStream(Shader.class.getResourceAsStream(name));
+        return compileShader(type, code);
+    }
+
+    /**
+     * Une um vertex e um fragment shader, gerando o shader program que será usado no desenho.
+     * O parâmetro de entrada dessa função é um array com o id de todos os shaders que devem ser unidos.
+     * @param shaders Ids dos shaders a serem linkados
+     * @return id do programa gerado
+     * @throws RuntimeException Caso algum erro de link ocorra.
+     */
+    private static int linkProgram(int... shaders) {
+        int program = glCreateProgram();
+        for (int shader : shaders) {
+            glAttachShader(program, shader);
+        }
+
+        glLinkProgram(program);
+        if (glGetProgrami(program, GL_LINK_STATUS) == GL_FALSE) {
+            throw new RuntimeException("Unable to link shaders." + glGetProgramInfoLog(program));
+        }
+
+        for (int shader : shaders) {
+            glDetachShader(program, shader);
+        }
+
+        return program;
+    }
+
+    /**
+     * Carrega o shader program formado pelos shaders indicados
+     * @param shaders Shaders para carregar
+     * @return O id do shader program
+     * @throws RuntimeException Caso um erro de compilação ou link ocorra.
+     */
+    public static Shader loadProgram(String... shaders) {
+        if (shaders.length == 0) {
+            throw new IllegalArgumentException("You must provide shader names!");
+        }
+
+        if (shaders.length == 1) {
+            shaders = new String[] { shaders[0] + ".vert", shaders[0] + ".frag" };
+        }
+
+        int[] ids = new int[shaders.length];
+        for (int i = 0; i < shaders.length; i++) {
+            ids[i] = loadShader(shaders[i]);
+        }
+        return new Shader(linkProgram(ids));
+    }
+
+    /**
+     * @return O id do shader program na OpenGL
+     */
+    public int getId() {
+        return id;
+    }
+
+    /**
+     * Faz o bind do shader program na OpenGL
+     * @return O próprio shader program
+     */
+    public Shader bind() {
+        glUseProgram(id);
+        return this;
+    }
+
+    /**
+     * Desfaz o bind do shader program na OpenGL
+     * @return O próprio shader program
+     */
+    public Shader unbind() {
+        glUseProgram(0);
+        return this;
+    }
+
+    /**
+     * Vincula um buffer a um atributo.
+     * @param name Nome do atributo a ser definido
+     * @param buffer Buffer com o conteúdo
+     * @return O próprio shader
+     */
+    public Shader setAttribute(String name, ArrayBuffer buffer) {
+        int attribute = glGetAttribLocation(id, name);
+        if (attribute == -1) {
+            throw new IllegalArgumentException("Attribute does not exists: " + name);
+        }
+        if (buffer == null) {
+            glDisableVertexAttribArray(attribute);
+        } else {
+            glEnableVertexAttribArray(attribute);
+            buffer.bind();
+            glVertexAttribPointer(attribute, buffer.getElementSize(), GL_FLOAT, false, 0, 0);
+            buffer.unbind();
+        }
+        return this;
+    }
+
+    /**
+     * Localiza o id do uniforme com o nome passado por parâmetro. Dispara um erro caso o uniforme não seja encontrado.
+     * @param name Nome do uniforme a ser procurado dentro do shader
+     * @return O id do uniforme.
+     */
+    private int findUniform(String name) {
+        int uniform = glGetUniformLocation(id, name);
+        if (uniform == -1) {
+            throw new IllegalArgumentException("Uniform does not exists: " + name);
+        }
+        return uniform;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param matrix valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, Matrix3f matrix) {
+        int uniform = findUniform(name);
+
+        FloatBuffer buffer = BufferUtils.createFloatBuffer(9);
+        matrix.get(buffer);
+        glUniformMatrix3fv(uniform, false, buffer);
+        return this;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param matrix valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, Matrix4f matrix) {
+        int uniform = findUniform(name);
+
+        FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
+        matrix.get(buffer);
+        glUniformMatrix4fv(uniform, false, buffer);
+        return this;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param vector valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, Vector2f vector) {
+        glUniform2f(findUniform(name), vector.x, vector.y);
+        return this;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param vector valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, Vector3f vector) {
+        glUniform3f(findUniform(name), vector.x, vector.y, vector.z);
+        return this;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param vector valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, Vector4f vector) {
+        glUniform4f(findUniform(name), vector.x, vector.y, vector.z, vector.w);
+        return this;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param value valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, int value) {
+        glUniform1i(findUniform(name), value);
+        return this;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param value valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, float value) {
+        glUniform1f(findUniform(name), value);
+        return this;
+    }
+
+    /**
+     * Define o valor de um uniforme dentro do shader
+     * @param name Nome do uniforme
+     * @param value valor a ser definido
+     * @return O próprio shader
+     */
+    public Shader setUniform(String name, boolean value) {
+        return setUniform(name, value ? GL_TRUE : GL_FALSE);
+    }
+
+    /**
+     * Aplica os valores do item passado por parametro a esse shader.
+     * @param item Item a ser aplicado
+     * @return O próprio shader
+     */
+    public Shader set(ShaderItem item) {
+        item.apply(this);
+        return this;
+    }
+}
