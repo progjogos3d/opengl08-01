@@ -19,7 +19,9 @@ import br.pucpr.mage.phong.DirectionalLight;
 import br.pucpr.mage.phong.MultiTextureMaterial;
 
 public class MultiTexture implements Scene {
-    private static final String PATH = "c:/temp/img/opengl/";
+
+    private static final String PATH = "/Users/vinigodoy/img/opengl/";
+    //private static final String PATH = "c:/temp/img/opengl/";
     
     private Keyboard keys = Keyboard.getInstance();
     
