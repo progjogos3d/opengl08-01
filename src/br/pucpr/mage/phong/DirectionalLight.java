@@ -1,10 +1,10 @@
 package br.pucpr.mage.phong;
 
-import br.pucpr.mage.Shader;
 import br.pucpr.mage.ShaderItem;
 import org.joml.Vector3f;
-
 import static br.pucpr.mage.MathUtil.asString;
+
+import br.pucpr.mage.Shader;
 
 public class DirectionalLight implements ShaderItem {
     private Vector3f direction;
