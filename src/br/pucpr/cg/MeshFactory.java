@@ -8,10 +8,8 @@ import org.joml.Vector3f;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.List;
 
 import static br.pucpr.mage.MathUtil.cross;
 import static br.pucpr.mage.MathUtil.sub;

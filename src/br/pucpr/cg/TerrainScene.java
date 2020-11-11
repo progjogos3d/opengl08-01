@@ -1,15 +1,12 @@
 package br.pucpr.cg;
 
 import br.pucpr.mage.*;
-import br.pucpr.mage.camera.Camera;
 import br.pucpr.mage.camera.CameraFPS;
 import br.pucpr.mage.phong.DirectionalLight;
 import br.pucpr.mage.phong.Material;
 import org.joml.Matrix4f;
 
-import static br.pucpr.mage.MathUtil.asString;
 import static br.pucpr.mage.MathUtil.mul;
-import static org.joml.Math.toDegrees;
 import static org.joml.Math.toRadians;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;

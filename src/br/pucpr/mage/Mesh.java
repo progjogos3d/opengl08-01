@@ -2,7 +2,8 @@ package br.pucpr.mage;
 
 import org.joml.*;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
