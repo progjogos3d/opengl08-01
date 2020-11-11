@@ -25,7 +25,6 @@ public class IndexBuffer {
         this.count = data.length;
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, data, GL_STATIC_DRAW);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
     /**
@@ -41,7 +40,6 @@ public class IndexBuffer {
         this.count = data.remaining();
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, data, GL_STATIC_DRAW);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
     /**
@@ -78,9 +76,8 @@ public class IndexBuffer {
      * Comanda o desenho com base nesse index buffer. O index buffer será desenhado por inteiro, considerando que ele
      * contém TRIANGLES. O bind e unbind é feito automaticamente, não sendo necessária a vinculação prévia.
      */
-    public void draw() {
-        bind();
+    public IndexBuffer draw() {
         glDrawElements(GL_TRIANGLES, getCount(), GL_UNSIGNED_INT, 0);
-        unbind();
+        return this;
     }
 }

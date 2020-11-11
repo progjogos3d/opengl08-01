@@ -27,7 +27,7 @@ public class Texture {
         
         //Ajuste dos parametros
         this.parameters = parameters;
-        parameters.apply(GL_TEXTURE_2D);
+        parameters.apply();
         if (parameters.isMipMapped()) {
             glGenerateMipmap(GL_TEXTURE_2D);
         }
@@ -55,18 +55,6 @@ public class Texture {
     public TextureParameters getParameters() {
         return parameters;
     }
-    
-    public void setParameters(TextureParameters parameters) {
-        if (parameters == null) {
-            throw new IllegalArgumentException("Parameters can't be null!");
-        }
-    
-        this.parameters = parameters;
-    
-        bind();
-        parameters.apply(GL_TEXTURE_2D);
-        unbind();
-    }
 
     public Texture bind() {
         glBindTexture(GL_TEXTURE_2D, id);
@@ -77,4 +65,18 @@ public class Texture {
         glBindTexture(GL_TEXTURE_2D, 0);
         return this;
     }
+
+    public Texture setParameters(TextureParameters parameters) {
+        if (parameters == null) {
+            throw new IllegalArgumentException("Parameters can't be null!");
+        }
+    
+        this.parameters = parameters;
+    
+        bind();
+        parameters.apply();
+        return unbind();
+    }
+
+
 }

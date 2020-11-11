@@ -33,13 +33,12 @@ public class ArrayBuffer {
 
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferData(GL_ARRAY_BUFFER, data, GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
     /**
      * Cria um ArrayBuffer contendo os dados passados por parâmetro.
      * @param elementSize Tamanho do elemento. Por exemplo 2 para um vec2.
-     * @param data Dados dentro do buffer.
+     * @param data FloatBuffer com dados.
      */
     public ArrayBuffer(int elementSize, FloatBuffer data) {
         if (elementSize < 1) {
@@ -48,15 +47,15 @@ public class ArrayBuffer {
         if (data == null) {
             throw new IllegalArgumentException("Data is null!");
         }
-    
+
         this.id = glGenBuffers();
         this.elementSize = elementSize;
         this.elementCount = data.remaining() / elementSize;
-    
+
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferData(GL_ARRAY_BUFFER, data, GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
+
 
     /**
      * @return O id do buffer na OpenGL

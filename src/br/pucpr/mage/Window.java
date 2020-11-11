@@ -1,7 +1,6 @@
 package br.pucpr.mage;
 
 import org.lwjgl.glfw.GLFWErrorCallback;
-import org.lwjgl.glfw.GLFWKeyCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
 
@@ -15,13 +14,6 @@ public class Window {
     private int width;
     private int height;
     private String title;
-    private GLFWErrorCallback errorCallback = GLFWErrorCallback.createPrint(System.err);
-    private GLFWKeyCallback keyCallback = new GLFWKeyCallback() {
-        @Override
-        public void invoke(long window, int key, int scancode, int action, int mods) {
-            Keyboard.getInstance().set(key, action);
-        }
-    };
 
     public Window(Scene scene, String title, int width, int height) {
         this.scene = scene;
@@ -42,7 +34,7 @@ public class Window {
         System.setProperty("java.awt.headless", "true");
         // Setup an error callback. The default implementation
         // will print the error message in System.err.
-        glfwSetErrorCallback(errorCallback);
+        GLFWErrorCallback.createPrint(System.err).set();
 
         // Initialize GLFW. Most GLFW functions will not work before doing this.
         if (!glfwInit())
@@ -65,7 +57,9 @@ public class Window {
 
         // Setup a key callback. It will be called every time a key is pressed,
         // repeated or released.
-        glfwSetKeyCallback(window, keyCallback);
+        glfwSetKeyCallback(window, (window, key, scancode, action, mods) ->
+            Keyboard.getInstance().set(key, action)
+        );
 
         // Get the resolution of the primary monitor
         GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
@@ -97,7 +91,7 @@ public class Window {
         long before = System.currentTimeMillis() - 1;
         while (!glfwWindowShouldClose(window)) {
             float time = (System.currentTimeMillis() - before) / 1000f;
-            before = System.currentTimeMillis() - 1;
+            before = System.currentTimeMillis();
             scene.update(time);
             scene.draw();
 

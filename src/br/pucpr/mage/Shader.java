@@ -1,13 +1,9 @@
 package br.pucpr.mage;
 
 import org.joml.*;
-import org.lwjgl.BufferUtils;
+import org.lwjgl.system.MemoryStack;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.FloatBuffer;
+import java.io.*;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL20.*;
@@ -23,14 +19,26 @@ public class Shader {
         this.id = id;
     }
 
+    private static InputStream findInputStream(String name) {
+        try {
+            var resource = Shader.class.getResourceAsStream("/br/pucpr/resource/" + name);
+            if (resource != null) {
+                return resource;
+            }
+            return new FileInputStream(name);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Le o conteúdo de um arquivo e carrega em uma String
      * @param is Um InputStream apontando para o arquivo
      * @return Um texto com o conteúdo do arquivo
      */
     private static String readInputStream(InputStream is) {
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
-            StringBuilder sb = new StringBuilder();
+        try (var br = new BufferedReader(new InputStreamReader(is))) {
+            var sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) {
                 sb.append(line).append("\n");
@@ -51,7 +59,7 @@ public class Shader {
      * @throws RuntimeException Caso o código contenha erros.
      */
     private static int compileShader(int type, String code) {
-        int shader = glCreateShader(type);
+        var shader = glCreateShader(type);
         glShaderSource(shader, code);
         glCompileShader(shader);
 
@@ -70,21 +78,17 @@ public class Shader {
     private static int loadShader(String name) {
         name = name.trim();
 
-        int dotIndex = name.lastIndexOf(".");
-        String extension = dotIndex == -1 ? "" : name.substring(dotIndex).toLowerCase();
-
         int type;
-        if (extension.equals(".vert") || extension.equals(".vs"))
+        if (name.endsWith(".vert") || name.endsWith(".vs"))
             type = GL_VERTEX_SHADER;
-        else if (extension.endsWith(".frag") || extension.endsWith(".fs"))
+        else if (name.endsWith(".frag") || name.endsWith(".fs"))
             type = GL_FRAGMENT_SHADER;
-        else if (extension.endsWith(".geom") || extension.endsWith(".gs"))
+        else if (name.endsWith(".geom") || name.endsWith(".gs"))
             type = GL_GEOMETRY_SHADER;
         else
             throw new IllegalArgumentException("Invalid shader name: " + name);
 
-        String code = readInputStream(Shader.class.getResourceAsStream(name));
-        return compileShader(type, code);
+        return compileShader(type, readInputStream(findInputStream(name)));
     }
 
     /**
@@ -96,7 +100,7 @@ public class Shader {
      */
     private static int linkProgram(int... shaders) {
         int program = glCreateProgram();
-        for (int shader : shaders) {
+        for (var shader : shaders) {
             glAttachShader(program, shader);
         }
 
@@ -105,7 +109,7 @@ public class Shader {
             throw new RuntimeException("Unable to link shaders." + glGetProgramInfoLog(program));
         }
 
-        for (int shader : shaders) {
+        for (var shader : shaders) {
             glDetachShader(program, shader);
         }
 
@@ -127,8 +131,8 @@ public class Shader {
             shaders = new String[] { shaders[0] + ".vert", shaders[0] + ".frag" };
         }
 
-        int[] ids = new int[shaders.length];
-        for (int i = 0; i < shaders.length; i++) {
+        var ids = new int[shaders.length];
+        for (var i = 0; i < shaders.length; i++) {
             ids[i] = loadShader(shaders[i]);
         }
         return new Shader(linkProgram(ids));
@@ -166,17 +170,16 @@ public class Shader {
      * @return O próprio shader
      */
     public Shader setAttribute(String name, ArrayBuffer buffer) {
-        int attribute = glGetAttribLocation(id, name);
+        var attribute = glGetAttribLocation(id, name);
         if (attribute == -1) {
             throw new IllegalArgumentException("Attribute does not exists: " + name);
         }
         if (buffer == null) {
             glDisableVertexAttribArray(attribute);
         } else {
-            glEnableVertexAttribArray(attribute);
             buffer.bind();
             glVertexAttribPointer(attribute, buffer.getElementSize(), GL_FLOAT, false, 0, 0);
-            buffer.unbind();
+            glEnableVertexAttribArray(attribute);
         }
         return this;
     }
@@ -187,7 +190,7 @@ public class Shader {
      * @return O id do uniforme.
      */
     private int findUniform(String name) {
-        int uniform = glGetUniformLocation(id, name);
+        var uniform = glGetUniformLocation(id, name);
         if (uniform == -1) {
             throw new IllegalArgumentException("Uniform does not exists: " + name);
         }
@@ -201,12 +204,12 @@ public class Shader {
      * @return O próprio shader
      */
     public Shader setUniform(String name, Matrix3f matrix) {
-        int uniform = findUniform(name);
-
-        FloatBuffer buffer = BufferUtils.createFloatBuffer(9);
-        matrix.get(buffer);
-        glUniformMatrix3fv(uniform, false, buffer);
-        return this;
+        var uniform = findUniform(name);
+        try (var stack = MemoryStack.stackPush()) {
+            glUniformMatrix3fv(uniform, false,
+                    matrix.get(stack.mallocFloat(9)));
+            return this;
+        }
     }
 
     /**
@@ -216,12 +219,13 @@ public class Shader {
      * @return O próprio shader
      */
     public Shader setUniform(String name, Matrix4f matrix) {
-        int uniform = findUniform(name);
+        var uniform = findUniform(name);
 
-        FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
-        matrix.get(buffer);
-        glUniformMatrix4fv(uniform, false, buffer);
-        return this;
+        try (var stack = MemoryStack.stackPush()) {
+            glUniformMatrix4fv(uniform, false,
+                    matrix.get(stack.mallocFloat(16)));
+            return this;
+        }
     }
 
     /**
@@ -290,10 +294,28 @@ public class Shader {
     }
 
     /**
-     * Aplica os valores do item passado por parametro a esse shader.
-     * @param item Item a ser aplicado
+     * Define o valor do uniform tentando converter o objeto passado para um dos tipos suportados pelo shader.
+     * @param name Nome parâmetro
+     * @param value Valor a ser inserido
      * @return O próprio shader
+     * @throws ClassCastException Se o valor passado não for suportado.
      */
+    public Shader setUniformObject(String name, Object value) {
+        //Converte o tipo do objeto de acordo com sua classe
+        if (value instanceof Matrix4f) return setUniform(name, (Matrix4f) value);
+        if (value instanceof Matrix3f) return setUniform(name, (Matrix3f) value);
+        if (value instanceof Vector4f) return setUniform(name, (Vector4f) value);
+        if (value instanceof Vector3f) return setUniform(name, (Vector3f) value);
+        if (value instanceof Vector2f) return setUniform(name, (Vector2f) value);
+        if (value instanceof Integer) return setUniform(name, (Integer) value);
+        if (value instanceof Float) return setUniform(name, (Float) value);
+        if (value instanceof Boolean) return setUniform(name, (Boolean) value);
+        if (value instanceof ShaderItem) return set((ShaderItem) value);
+
+        //Lança exceção para tipos não suportados
+        throw new ClassCastException("Unsupported uniform type: " + value.getClass().getName());
+    }
+
     public Shader set(ShaderItem item) {
         item.apply(this);
         return this;

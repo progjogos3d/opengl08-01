@@ -1,15 +1,16 @@
-package br.pucpr.cg;
+package br.pucpr.mage.camera;
 
 import br.pucpr.mage.Shader;
 import br.pucpr.mage.ShaderItem;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.lwjgl.BufferUtils;
+import org.lwjgl.system.MemoryStack;
 
-import java.nio.IntBuffer;
-
+import static br.pucpr.mage.MathUtil.asString;
+import static org.joml.Math.toRadians;
 import static org.lwjgl.glfw.GLFW.glfwGetCurrentContext;
 import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
+
 
 /**
  * Representa a camera. Toda camera é formada por dois tipos de transformacoes:
@@ -22,7 +23,7 @@ public class Camera implements ShaderItem {
     private Vector3f position = new Vector3f(0,0,2);    //Onde a camera está
     private Vector3f up = new Vector3f(0, 1, 0);        //Deve apontar para "cima"
     private Vector3f target = new Vector3f(0,0,0);      //POSIÇÃO para onde a camera olha
-    private float fov = (float)Math.toRadians(60);                //Angulo de abertura em y
+    private float fov = toRadians(60.f);                  //Angulo de abertura em y
     private float near = 0.1f;                                    //Distancia mais proxima que a camera enxerga
     private float far = 1000.0f;                                  //Distancia mais afastada que a camera enxerga
 
@@ -58,8 +59,9 @@ public class Camera implements ShaderItem {
      * Troca o angulo de abertura da camera, também chamado de campo de visão (Field of View)
      * @param fov Novo angulo, em radianos. Utilize um valor entre 45 e 60 graus para uma visualização mais natural
      */
-    public void setFov(float fov) {
+    public Camera setFov(float fov) {
         this.fov = fov;
+        return this;
     }
 
     /**
@@ -74,8 +76,9 @@ public class Camera implements ShaderItem {
      * Define o plano mais próximo de visualização da camera. Tudo o que estiver atrás desse plano não será visto.
      * @param near A distância até o plano. Deve obrigatoriamente ser maior do que 0.
      */
-    public void setNear(float near) {
+    public Camera setNear(float near) {
         this.near = near;
+        return this;
     }
 
     /**
@@ -90,26 +93,29 @@ public class Camera implements ShaderItem {
      * Define o plano mais afastado de visualização da camera. Tudo o que estiver adiante desse plano não será visto.
      * @param far A distância até o plano. Deve obrigatoriamente ser maior do que o plano near.
      */
-    public void setFar(float far) {
+    public Camera setFar(float far) {
         this.far = far;
+        return this;
     }
 
     /**
      * @return A proporção da tela. A proporção é dada pela largura / altura.
      */
-    private float getAspect() {
-        IntBuffer w = BufferUtils.createIntBuffer(1);
-        IntBuffer h = BufferUtils.createIntBuffer(1);
-        long window = glfwGetCurrentContext();
-        glfwGetWindowSize(window, w, h);        
-        return w.get() / (float)h.get();
+    public float getAspect() {
+        try (var stack = MemoryStack.stackPush()) {
+            var w = stack.mallocInt(1);
+            var h = stack.mallocInt(1);
+            long window = glfwGetCurrentContext();
+            glfwGetWindowSize(window, w, h);
+            return w.get() / (float) h.get();
+        }
     }
 
     /**
      * @return A matriz view, calculada com base nos campos da camera.
      */
     public Matrix4f getViewMatrix() {
-        return new Matrix4f().lookAt(position, target, up);
+        return new Matrix4f().lookAt(getPosition(), getTarget(), getUp());
     }
 
     /**
@@ -127,5 +133,10 @@ public class Camera implements ShaderItem {
         shader.setUniform("uProjection", getProjectionMatrix())
               .setUniform("uView", getViewMatrix())
               .setUniform("uCameraPos", getPosition());
+    }
+
+    @Override
+    public String toString() {
+        return "Camera position=" + asString(getPosition()) + " target=" + asString(getTarget()) + " up: " + asString(getUp());
     }
 }
