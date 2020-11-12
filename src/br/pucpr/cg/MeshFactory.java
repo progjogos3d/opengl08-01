@@ -111,8 +111,8 @@ public class MeshFactory {
         try {
             var img = ImageIO.read(new File(name));
 
-            int width = img.getWidth();
-            int depth = img.getHeight();
+            var width = img.getWidth();
+            var depth = img.getHeight();
 
             //Vértices (posições) da malha
             //----------------------------
@@ -120,8 +120,8 @@ public class MeshFactory {
             //Subtraímos metade da altura e largura para garantir que fique no centro
             var offset = new Vector3f(width / 2.0f, 0.0f, depth / 2.0f);
             var positions = new ArrayList<Vector3f>();
-            for (int z = 0; z < depth; z++) {
-                for (int x = 0; x < width; x++) {
+            for (var z = 0; z < depth; z++) {
+                for (var x = 0; x < width; x++) {
                     var dx = x != width-1 ? 1 : -1;
                     var dz = z != depth - 1 ? 1 : -1;
 
@@ -142,12 +142,12 @@ public class MeshFactory {
             //Os índices são criados a cada quadrado da malha. Observe que há uma linha e coluna a menos de quadrados
             //do que há de vértices.
             var indices = new ArrayList<Integer>();
-            for (int z = 0; z < depth-1; z++) {
-                for (int x = 0; x < width-1; x++) {
-                    int zero = linearIndex(x, z, width);
-                    int one = linearIndex(x+1, + z, width);
-                    int two = linearIndex(x, z+1, width);
-                    int three = linearIndex(x+1, z+1, width);
+            for (var z = 0; z < depth-1; z++) {
+                for (var x = 0; x < width-1; x++) {
+                    var zero = linearIndex(x, z, width);
+                    var one = linearIndex(x+1, + z, width);
+                    var two = linearIndex(x, z+1, width);
+                    var three = linearIndex(x+1, z+1, width);
 
                     indices.add(zero);
                     indices.add(three);
@@ -162,16 +162,16 @@ public class MeshFactory {
             //Normais de superfície
             //---------------------
             var normals = new ArrayList<Vector3f>();
-            for (int i = 0; i < positions.size(); i++) {
+            for (var i = 0; i < positions.size(); i++) {
                 normals.add(new Vector3f());
             }
 
             //Percorremos triangulo por triangulo
             for (var i = 0; i < indices.size(); i += 3) {
                 //Índices dos 3 vértices
-                int i1 = indices.get(i);
-                int i2 = indices.get(i+1);
-                int i3 = indices.get(i+2);
+                var i1 = indices.get(i);
+                var i2 = indices.get(i+1);
+                var i3 = indices.get(i+2);
 
                 //Três vértices do triangulo
                 var v1 = positions.get(i1);
@@ -203,8 +203,8 @@ public class MeshFactory {
             var tv = 1.0f / (depth-1) * texRepeat;
 
             var texCoords = new ArrayList<Vector2f>();
-            for (int z = 0; z < depth; z++) {
-                for (int x = 0; x < width; x++) {
+            for (var z = 0; z < depth; z++) {
+                for (var x = 0; x < width; x++) {
                     texCoords.add(new Vector2f(x * tu, z * tv));
                 }
             }
